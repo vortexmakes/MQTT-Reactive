@@ -64,7 +64,7 @@ uint16_t __mqtt_next_pid(struct mqtt_client *client) {
 }
 
 enum MQTTErrors mqtt_init(struct mqtt_client *client,
-               int sockfd,
+               mqtt_pal_socket_handle sockfd,
                uint8_t *sendbuf, size_t sendbufsz,
                uint8_t *recvbuf, size_t recvbufsz,
                void (*publish_response_callback)(void** state,struct mqtt_response_publish *publish))

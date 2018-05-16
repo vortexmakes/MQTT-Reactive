@@ -10,6 +10,70 @@
 
 #ifdef __unix__
 
+#define USE_OPENSSL
+
+#ifdef USE_OPENSSL
+
+int openssl_loaded = 0;
+
+mqtt_pal_socket_handle mqtt_pal_sockopen(const char* addr, const char* port, int af) {
+    if (!openssl_loaded) {
+        SSL_load_error_strings();
+        ERR_load_BIO_strings();
+        OpenSSL_add_all_algorithms();
+        openssl_loaded = 1;
+    }
+
+    BIO* bio = BIO_new_connect(addr);
+    BIO_set_nbio(bio, 1);
+    BIO_set_conn_port(bio, port);
+
+    int start_time = time(NULL);
+    while(BIO_do_connect(bio) == 0 && (int)time(NULL) - start_time < 10);
+
+    if (BIO_do_connect(bio) <= 0) {
+        fprintf(stderr, "Failed to open socket: BIO_do_connect returned <= 0\n");
+        return NULL;
+    }
+
+    return bio;
+}
+
+
+ssize_t mqtt_pal_sendall(mqtt_pal_socket_handle bio, const void* buf, size_t len, int flags) {
+    size_t sent = 0;
+    while(sent < len) {
+        int tmp = BIO_write(bio, buf + sent, len - sent);
+        if (tmp > 0) {
+            sent += (size_t) tmp;
+        } else if (tmp <= 0 && !BIO_should_retry(bio)) {
+            return MQTT_ERROR_SOCKET_ERROR;
+        }
+    }
+    return sent;
+}
+
+ssize_t mqtt_pal_recvall(mqtt_pal_socket_handle bio, void* buf, size_t bufsz, int flags) {
+    const void const *start = buf;
+    int rv;
+    do {
+        rv = BIO_read(bio, buf, bufsz);
+        if (rv > 0) {
+            /* successfully read bytes from the socket */
+            buf += rv;
+            bufsz -= rv;
+        } else if (!BIO_should_retry(bio)) {
+            /* an error occurred that wasn't "nothing to read". */
+            return MQTT_ERROR_SOCKET_ERROR;
+        }
+    } while (!BIO_should_read(bio));
+
+    return (ssize_t)(buf - start);
+}
+
+
+#else /* don't use OPENSSL */
+
 #include <stdio.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -18,7 +82,7 @@
 #include <fcntl.h>
 
 
-ssize_t mqtt_pal_sendall(int fd, const void* buf, size_t len, int flags) {
+ssize_t mqtt_pal_sendall(mqtt_pal_socket_handle fd, const void* buf, size_t len, int flags) {
     size_t sent = 0;
     while(sent < len) {
         ssize_t tmp = send(fd, buf + sent, len - sent, flags);
@@ -30,7 +94,7 @@ ssize_t mqtt_pal_sendall(int fd, const void* buf, size_t len, int flags) {
     return sent;
 }
 
-ssize_t mqtt_pal_recvall(int fd, void* buf, size_t bufsz, int flags) {
+ssize_t mqtt_pal_recvall(mqtt_pal_socket_handle fd, void* buf, size_t bufsz, int flags) {
     const void const *start = buf;
     ssize_t rv;
     do {
@@ -49,7 +113,7 @@ ssize_t mqtt_pal_recvall(int fd, void* buf, size_t bufsz, int flags) {
 }
 
 
-int mqtt_pal_sockopen(const char* addr, const char* port, int af) {
+mqtt_pal_socket_handle mqtt_pal_sockopen(const char* addr, const char* port, int af) {
     struct addrinfo hints = {0};
 
     hints.ai_family = af; /* IPv4 or IPv6 */
@@ -85,6 +149,8 @@ int mqtt_pal_sockopen(const char* addr, const char* port, int af) {
     /* return the new socket fd */
     return sockfd;  
 }
+
+#endif /* don't use OPENSSL */
 
 #endif
 
