@@ -4,13 +4,13 @@ CFLAGS = -Wextra -Wall -std=gnu99 -Iinclude -Wno-unused-parameter -Wno-unused-va
 
 MQTT_C_SOURCES = src/mqtt.c src/mqtt_pal.c
 MQTT_C_EXAMPLES = bin/simple_publisher bin/simple_subscriber
-MQTT_C_UNITTESTS = bin/tests
+MQTT_C_UNITTESTS = #bin/tests
 BINDIR = bin
 
 all: $(BINDIR) $(MQTT_C_UNITTESTS) $(MQTT_C_EXAMPLES)
 
 bin/simple_%: examples/simple_%.c $(MQTT_C_SOURCES)
-	$(CC) $(CFLAGS) $^ -lpthread -o $@
+	$(CC) $(CFLAGS) $^ -lpthread `pkg-config --libs openssl` -o $@
 
 $(BINDIR):
 	mkdir -p $(BINDIR)

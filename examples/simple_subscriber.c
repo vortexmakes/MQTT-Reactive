@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#define USE_OPENSSL
 #include <mqtt.h>
 
 
@@ -28,7 +29,7 @@ void* client_refresher(void* client);
 /**
  * @brief Safelty closes the \p sockfd and cancels the \p client_daemon before \c exit. 
  */
-void exit_example(int status, int sockfd, pthread_t *client_daemon);
+void exit_example(int status, mqtt_pal_socket_handle sockfd, pthread_t *client_daemon);
 
 int main(int argc, const char *argv[]) 
 {
@@ -58,12 +59,18 @@ int main(int argc, const char *argv[])
     }
 
     /* open the non-blocking TCP socket (connecting to the broker) */
-    int sockfd = mqtt_pal_sockopen(addr, port, AF_INET);
+    mqtt_pal_socket_handle sockfd = mqtt_pal_sockopen(addr, port, AF_INET);
 
+    #ifdef USE_OPENSSL
+    if (sockfd == NULL) {
+        exit_example(EXIT_FAILURE, sockfd, NULL);
+    }
+    #else
     if (sockfd == -1) {
         perror("Failed to open socket: ");
         exit_example(EXIT_FAILURE, sockfd, NULL);
     }
+    #endif
 
     /* setup a client */
     struct mqtt_client client;
@@ -104,9 +111,14 @@ int main(int argc, const char *argv[])
     exit_example(EXIT_SUCCESS, sockfd, &client_daemon);
 }
 
-void exit_example(int status, int sockfd, pthread_t *client_daemon)
+void exit_example(int status, mqtt_pal_socket_handle sockfd, pthread_t *client_daemon)
 {
+    #ifdef USE_OPENSSL
+    BIO_reset(sockfd);
+    BIO_free_all(sockfd);
+    #else
     if (sockfd != -1) close(sockfd);
+    #endif
     if (client_daemon != NULL) pthread_cancel(*client_daemon);
     exit(status);
 }
