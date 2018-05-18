@@ -11,10 +11,10 @@ BINDIR = bin
 all: $(BINDIR) $(MQTT_C_UNITTESTS) $(MQTT_C_EXAMPLES)
 
 bin/simple_%: examples/simple_%.c $(MQTT_C_SOURCES)
-	$(CC) $(CFLAGS) $^ -lpthread `pkg-config --libs openssl` -o $@
+	$(CC) $(CFLAGS) -DUSE_OPENSSL $^ -lpthread `pkg-config --libs openssl` -o $@
 
 bin/reconnect_%: examples/reconnect_%.c $(MQTT_C_SOURCES)
-	$(CC) $(CFLAGS) $^ -lpthread -o $@
+	$(CC) $(CFLAGS) -DUSE_OPENSSL $^ -lpthread `pkg-config --libs openssl` -o $@
 
 $(BINDIR):
 	mkdir -p $(BINDIR)

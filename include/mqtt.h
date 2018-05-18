@@ -1314,7 +1314,7 @@ void mqtt_init_reconnect(struct mqtt_client *client,
  *            initialzed with \ref mqtt_init_reconnect.  
  */
 void mqtt_reinit(struct mqtt_client* client,
-                 int socketfd,
+                 mqtt_pal_socket_handle socketfd,
                  uint8_t *sendbuf, size_t sendbufsz,
                  uint8_t *recvbuf, size_t recvbufsz);
 

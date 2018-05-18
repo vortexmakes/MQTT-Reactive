@@ -10,13 +10,11 @@
 
 #ifdef __unix__
 
-#define USE_OPENSSL
-
 #ifdef USE_OPENSSL
 
 int openssl_loaded = 0;
 
-mqtt_pal_socket_handle mqtt_pal_sockopen(const char* addr, const char* port, int af) {
+mqtt_pal_socket_handle mqtt_pal_sockopen(const char* addr, const char* port) {
     if (!openssl_loaded) {
         SSL_load_error_strings();
         ERR_load_BIO_strings();
@@ -39,6 +37,10 @@ mqtt_pal_socket_handle mqtt_pal_sockopen(const char* addr, const char* port, int
     return bio;
 }
 
+
+void mqtt_pal_sockclose(mqtt_pal_socket_handle socketfd) {
+    BIO_free_all(socketfd);
+}
 
 ssize_t mqtt_pal_sendall(mqtt_pal_socket_handle bio, const void* buf, size_t len, int flags) {
     size_t sent = 0;
@@ -113,10 +115,10 @@ ssize_t mqtt_pal_recvall(mqtt_pal_socket_handle fd, void* buf, size_t bufsz, int
 }
 
 
-mqtt_pal_socket_handle mqtt_pal_sockopen(const char* addr, const char* port, int af) {
+mqtt_pal_socket_handle mqtt_pal_sockopen(const char* addr, const char* port) {
     struct addrinfo hints = {0};
 
-    hints.ai_family = af; /* IPv4 or IPv6 */
+    hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM; /* Must be TCP */
     int sockfd = -1;
     int rv;
@@ -148,6 +150,10 @@ mqtt_pal_socket_handle mqtt_pal_sockopen(const char* addr, const char* port, int
 
     /* return the new socket fd */
     return sockfd;  
+}
+
+void mqtt_pal_sockclose(mqtt_pal_socket_handle socketfd) {
+    close(socketfd);
 }
 
 #endif /* don't use OPENSSL */

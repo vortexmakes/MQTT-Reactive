@@ -51,7 +51,7 @@ void* client_refresher(void* client);
 /**
  * @brief Safelty closes the \p sockfd and cancels the \p client_daemon before \c exit. 
  */
-void exit_example(int status, int sockfd, pthread_t *client_daemon);
+void exit_example(int status, mqtt_pal_socket_handle sockfd, pthread_t *client_daemon);
 
 
 int main(int argc, const char *argv[]) 
@@ -105,7 +105,7 @@ int main(int argc, const char *argv[])
     pthread_t client_daemon;
     if(pthread_create(&client_daemon, NULL, client_refresher, &client)) {
         fprintf(stderr, "Failed to start client daemon.\n");
-        exit_example(EXIT_FAILURE, -1, NULL);
+        exit_example(EXIT_FAILURE, (mqtt_pal_socket_handle) -1, NULL);
 
     }
 
@@ -113,6 +113,11 @@ int main(int argc, const char *argv[])
     printf("%s listening for '%s' messages.\n", argv[0], topic);
     printf("Press ENTER to inject an error.\n");
     printf("Press CTRL-D to exit.\n\n");
+    #ifdef USE_OPENSSL
+    printf("Usine BIO\n");
+    #else
+    printf("Usine ints\n");
+    #endif
     
     /* block */
     while(fgetc(stdin) != EOF) {
@@ -134,7 +139,7 @@ void reconnect_client(struct mqtt_client* client, void **reconnect_state_vptr)
 
     /* Close the clients socket if this isn't the initial reconnect call */
     if (client->error != MQTT_ERROR_INITIAL_RECONNECT) {
-        close(client->socketfd);
+        mqtt_pal_sockclose(client->socketfd);
     }
 
     /* Perform error handling here. */
@@ -145,11 +150,17 @@ void reconnect_client(struct mqtt_client* client, void **reconnect_state_vptr)
     }
 
     /* Open a new socket. */
-    int sockfd = mqtt_pal_sockopen(reconnect_state->hostname, reconnect_state->port, AF_INET);
+    mqtt_pal_socket_handle sockfd = mqtt_pal_sockopen(reconnect_state->hostname, reconnect_state->port);
+    #ifdef USE_OPENSSL
+    if (sockfd == NULL) {
+        exit_example(EXIT_FAILURE, sockfd, NULL);
+    }
+    #else
     if (sockfd == -1) {
         perror("Failed to open socket: ");
         exit_example(EXIT_FAILURE, sockfd, NULL);
     }
+    #endif
 
     /* Reinitialize the client. */
     mqtt_reinit(client, sockfd, 
@@ -164,9 +175,9 @@ void reconnect_client(struct mqtt_client* client, void **reconnect_state_vptr)
     mqtt_subscribe(client, reconnect_state->topic, 0);
 }
 
-void exit_example(int status, int sockfd, pthread_t *client_daemon)
+void exit_example(int status, mqtt_pal_socket_handle sockfd, pthread_t *client_daemon)
 {
-    if (sockfd != -1) close(sockfd);
+    mqtt_pal_sockclose(sockfd);
     if (client_daemon != NULL) pthread_cancel(*client_daemon);
     exit(status);
 }

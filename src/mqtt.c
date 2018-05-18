@@ -108,7 +108,7 @@ void mqtt_init_reconnect(struct mqtt_client *client,
     /* initialize mutex */
     MQTT_PAL_MUTEX_INIT(&client->mutex);
 
-    client->socketfd = -1;
+    client->socketfd = (mqtt_pal_socket_handle) -1;
 
     mqtt_mq_init(&client->mq, NULL, 0);
 
@@ -130,7 +130,7 @@ void mqtt_init_reconnect(struct mqtt_client *client,
 }
 
 void mqtt_reinit(struct mqtt_client* client,
-                 int socketfd,
+                 mqtt_pal_socket_handle socketfd,
                  uint8_t *sendbuf, size_t sendbufsz,
                  uint8_t *recvbuf, size_t recvbufsz)
 {

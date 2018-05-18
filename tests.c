@@ -207,7 +207,7 @@ static void TEST__utility__connect_disconnect(void** state) {
     ssize_t rv;
     struct mqtt_response mqtt_response;
 
-    client.socketfd = mqtt_pal_sockopen(addr, port, AF_INET);
+    client.socketfd = mqtt_pal_sockopen(addr, port);
     fcntl(client.socketfd, F_SETFL, fcntl(client.socketfd, F_GETFL) & ~O_NONBLOCK);
     assert_true(client.socketfd != -1);
 
@@ -409,7 +409,7 @@ static void TEST__utility__ping(void** state) {
     ssize_t rv;
     struct mqtt_response mqtt_response;
 
-    client.socketfd = mqtt_pal_sockopen(addr, port, AF_INET);
+    client.socketfd = mqtt_pal_sockopen(addr, port);
     fcntl(client.socketfd, F_SETFL, fcntl(client.socketfd, F_GETFL) & ~O_NONBLOCK);
     assert_true(client.socketfd != -1);
 
@@ -562,7 +562,7 @@ static void TEST__api__connect_ping_disconnect(void **unused) {
     ssize_t rv;
     struct mqtt_client client;
 
-    int sockfd = mqtt_pal_sockopen(addr, port, AF_INET);
+    int sockfd = mqtt_pal_sockopen(addr, port);
     fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL) | O_NONBLOCK);
 
     /* initialize */
@@ -607,11 +607,11 @@ static void TEST__api__publish_subscribe__single(void **unused) {
 
     int state = 0;
 
-    int sockfd = mqtt_pal_sockopen(addr, port, AF_INET);
+    int sockfd = mqtt_pal_sockopen(addr, port);
     fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL) | O_NONBLOCK);
     mqtt_init(&sender, sockfd, sendmem1, sizeof(sendmem1), recvmem1, sizeof(recvmem1), publish_callback);
 
-    sockfd = mqtt_pal_sockopen(addr, port, AF_INET);
+    sockfd = mqtt_pal_sockopen(addr, port);
     fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL) | O_NONBLOCK);
     mqtt_init(&receiver, sockfd, sendmem2, sizeof(sendmem2), recvmem2, sizeof(recvmem2), publish_callback);
     receiver.publish_response_callback_state = &state;
@@ -672,11 +672,11 @@ static void TEST__api__publish_subscribe__multiple(void **unused) {
     int state = 0;
 
     /* initialize sender */
-    int sockfd = mqtt_pal_sockopen(addr, port, AF_INET);
+    int sockfd = mqtt_pal_sockopen(addr, port);
     fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL) | O_NONBLOCK);
     mqtt_init(&sender, sockfd, sendmem1, sizeof(sendmem1), recvmem1, sizeof(recvmem1), publish_callback);
 
-    sockfd = mqtt_pal_sockopen(addr, port, AF_INET);
+    sockfd = mqtt_pal_sockopen(addr, port);
     fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL) | O_NONBLOCK);
     mqtt_init(&receiver, sockfd, sendmem2, sizeof(sendmem2), recvmem2, sizeof(recvmem2), publish_callback);
     receiver.publish_response_callback_state = &state;

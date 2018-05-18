@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#define USE_OPENSSL
 #include <mqtt.h>
 
 
@@ -64,7 +63,7 @@ int main(int argc, const char *argv[])
     }
 
     /* open the non-blocking TCP socket (connecting to the broker) */
-    mqtt_pal_socket_handle sockfd = mqtt_pal_sockopen(addr, port, AF_INET);
+    mqtt_pal_socket_handle sockfd = mqtt_pal_sockopen(addr, port);
 
     #ifdef USE_OPENSSL
     if (sockfd == NULL) {
@@ -135,12 +134,7 @@ int main(int argc, const char *argv[])
 
 void exit_example(int status, mqtt_pal_socket_handle sockfd, pthread_t *client_daemon)
 {
-    #ifdef USE_OPENSSL
-    BIO_reset(sockfd);
-    BIO_free_all(sockfd);
-    #else
-    if (sockfd != -1) close(sockfd);
-    #endif
+    mqtt_pal_sockclose(sockfd);
     if (client_daemon != NULL) pthread_cancel(*client_daemon);
     exit(status);
 }

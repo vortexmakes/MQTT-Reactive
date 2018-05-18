@@ -71,7 +71,8 @@
         typedef int mqtt_pal_socket_handle;
     #endif
 
-    mqtt_pal_socket_handle mqtt_pal_sockopen(const char* addr, const char* port, int af);
+    mqtt_pal_socket_handle mqtt_pal_sockopen(const char* address, const char* port);
+    void mqtt_pal_sockclose(mqtt_pal_socket_handle socketfd);
 #endif
 
 /**
