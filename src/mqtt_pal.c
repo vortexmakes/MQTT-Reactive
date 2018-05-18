@@ -22,16 +22,43 @@ mqtt_pal_socket_handle mqtt_pal_sockopen(const char* addr, const char* port) {
         openssl_loaded = 1;
     }
 
-    BIO* bio = BIO_new_connect(addr);
+    SSL_CTX * ctx = SSL_CTX_new(SSLv23_client_method());
+    SSL * ssl;
+
+    if(! SSL_CTX_load_verify_locations(ctx, "/home/liam/Downloads/mosquitto.org.crt", NULL))
+    {
+        /* Handle failed load here */
+        printf("Failed to load PEM\n");
+        exit(1);
+    }
+
+
+    BIO* bio = BIO_new_ssl_connect(ctx);
+    BIO_get_ssl(bio, &ssl);
+    printf("Error: %s\n", ERR_reason_error_string(ERR_get_error()));
+    SSL_set_mode(ssl, SSL_MODE_AUTO_RETRY);
+    printf("Error: %s\n", ERR_reason_error_string(ERR_get_error()));
+    BIO_set_conn_hostname(bio, addr);
+    printf("Error: %s\n", ERR_reason_error_string(ERR_get_error()));
     BIO_set_nbio(bio, 1);
+    printf("Error: %s\n", ERR_reason_error_string(ERR_get_error()));
     BIO_set_conn_port(bio, port);
+    printf("Error: %s\n", ERR_reason_error_string(ERR_get_error()));
 
     int start_time = time(NULL);
-    while(BIO_do_connect(bio) == 0 && (int)time(NULL) - start_time < 10);
+    while(BIO_do_connect(bio) <= 0 && (int)time(NULL) - start_time < 10);
 
     if (BIO_do_connect(bio) <= 0) {
+        printf("Error: %s\n", ERR_reason_error_string(ERR_get_error()));
         fprintf(stderr, "Failed to open socket: BIO_do_connect returned <= 0\n");
         return NULL;
+    }
+
+    if(SSL_get_verify_result(ssl) != X509_V_OK)
+    {
+        /* Handle the failed verification */
+        printf("Failed to verify x509 cert\n");
+        exit(1);
     }
 
     return bio;

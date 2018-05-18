@@ -54,6 +54,7 @@ int main(int argc, const char *argv[])
     } else {
         port = "1883";
     }
+    printf("port=%s\n", port);
 
     /* get the topic name to publish */
     if (argc > 3) {
