@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#define USE_OPENSSL
 #include <mqtt.h>
 
 
