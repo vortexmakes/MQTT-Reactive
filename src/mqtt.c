@@ -443,10 +443,8 @@ sendOneMsg(struct mqtt_client *client, LocalSendAll *local)
 static void
 sendMsgFail(struct mqtt_client *client, LocalSendAll *local)
 {
-    if (local->resend) {
-        client->error = local->tmp;
-        MQTT_PAL_MUTEX_UNLOCK(&client->mutex);
-    }
+    client->error = local->tmp;
+    MQTT_PAL_MUTEX_UNLOCK(&client->mutex);
 }
 
 static void
@@ -565,6 +563,7 @@ ssize_t __mqtt_send(struct mqtt_client *client)
                 }
                 setMsgState(client, &local);
                 if (!isSetMsgStateResult(&local)) { 
+                    MQTT_PAL_MUTEX_UNLOCK(&client->mutex);
                     return local.setMsgStateResult;
                 }
             }
@@ -572,6 +571,7 @@ ssize_t __mqtt_send(struct mqtt_client *client)
         }
         return endSendAll(client);
     }
+    MQTT_PAL_MUTEX_UNLOCK(&client->mutex);
     return local.initResult;
 }
 #else
@@ -718,7 +718,8 @@ initRecvAll(void)
 static void
 recvAll(struct mqtt_client *client, LocalRecvAll *local)
 {
-    local->rv = mqtt_pal_recvall(client->socketfd, client->recv_buffer.curr, client->recv_buffer.curr_sz, 0);
+    local->rv = mqtt_pal_recvall(client->socketfd, client->recv_buffer.curr, 
+                                 client->recv_buffer.curr_sz, 0);
 }
 
 static void
@@ -754,12 +755,11 @@ isUnpackError(LocalRecvAll *local)
     return local->consumed < 0;
 }
 
-static int
+static void
 parseError(struct mqtt_client *client, LocalRecvAll *local)
 {
     client->error = local->consumed;
     MQTT_PAL_MUTEX_UNLOCK(&client->mutex);
-    return local->consumed;
 }
 
 static int
@@ -1007,10 +1007,10 @@ cleanBuf(struct mqtt_client *client, LocalRecvAll *local)
     client->recv_buffer.curr_sz += local->consumed;
 }
 
-static int 
+static void
 recvMsgError(struct mqtt_client *client, LocalRecvAll *local)
 {
-    return local->handleRecvMsgResult;
+    MQTT_PAL_MUTEX_UNLOCK(&client->mutex);
 }
 
 ssize_t __mqtt_recv(struct mqtt_client *client) 
@@ -1035,11 +1035,13 @@ ssize_t __mqtt_recv(struct mqtt_client *client)
                 cleanBuf(client, &local);
             }
             else {
-                return recvMsgError(client, &local);
+                recvMsgError(client, &local);
+                return local.handleRecvMsgResult;
             }
         }
         else if (isUnpackError(&local)) {
-            return parseError(client, &local);
+            parseError(client, &local);
+            return local.consumed;
         } else {
             return noConsumed(client, &local);
         }
