@@ -7,8 +7,7 @@ MQTT_C_EXAMPLES = bin/simple_publisher bin/simple_subscriber
 MQTT_C_UNITTESTS = bin/tests
 BINDIR = bin
 
-#all: $(BINDIR) $(MQTT_C_UNITTESTS) $(MQTT_C_EXAMPLES)
-all: $(BINDIR) $(MQTT_C_EXAMPLES)
+all: $(BINDIR) $(MQTT_C_UNITTESTS) $(MQTT_C_EXAMPLES)
 
 bin/simple_%: examples/simple_%.c $(MQTT_C_SOURCES)
 	$(CC) $(CFLAGS) $^ -lpthread -o $@
