@@ -109,7 +109,7 @@ int main(int argc, const char *argv[])
         printf("%s published : \"%s\"", argv[0], application_message);
 
         /* publish the time */
-        mqtt_publish(&client, topic, application_message, strlen(application_message) + 1, MQTT_PUBLISH_QOS_0);
+        mqtt_publish(&client, topic, application_message, strlen(application_message) + 1, MQTT_PUBLISH_QOS_1);
 
         /* check for errors */
         if (client.error != MQTT_OK) {
