@@ -765,6 +765,8 @@ parseError(struct mqtt_client *client, LocalRecvAll *local)
 static int
 noConsumed(struct mqtt_client *client, LocalRecvAll *local)
 {
+    (void *)local;
+
     /* if curr_sz is 0 then the buffer is too small to ever fit the message */
     if (client->recv_buffer.curr_sz == 0) {
         client->error = MQTT_ERROR_RECV_BUFFER_TOO_SMALL;
@@ -780,6 +782,8 @@ noConsumed(struct mqtt_client *client, LocalRecvAll *local)
 static int
 isNotError(struct mqtt_client *client, LocalRecvAll *local)
 {
+    (void *)client;
+
     return local->handleRecvMsgResult == MQTT_OK;
 }
 
@@ -1010,6 +1014,8 @@ cleanBuf(struct mqtt_client *client, LocalRecvAll *local)
 static void
 recvMsgError(struct mqtt_client *client, LocalRecvAll *local)
 {
+    (void *)local;
+
     MQTT_PAL_MUTEX_UNLOCK(&client->mutex);
 }
 
@@ -1502,7 +1508,7 @@ ssize_t mqtt_pack_connection_request(uint8_t* buf, size_t bufsz,
 { 
     struct mqtt_fixed_header fixed_header;
     uint32_t remaining_length;
-    const uint8_t const* start = buf;
+    const uint8_t *start = buf;
     ssize_t rv;
     uint8_t temp;
 
@@ -1611,7 +1617,7 @@ ssize_t mqtt_pack_connection_request(uint8_t* buf, size_t bufsz,
 
 /* CONNACK */
 ssize_t mqtt_unpack_connack_response(struct mqtt_response *mqtt_response, const uint8_t *buf) {
-    const uint8_t const *start = buf;
+    const uint8_t *start = buf;
     struct mqtt_response_connack *response;
 
     /* check that remaining length is 2 */
@@ -1663,7 +1669,7 @@ ssize_t mqtt_pack_publish_request(uint8_t *buf, size_t bufsz,
                                   size_t application_message_size,
                                   uint8_t publish_flags)
 {
-    const uint8_t const *start = buf;
+    const uint8_t *start = buf;
     ssize_t rv;
     struct mqtt_fixed_header fixed_header;
     uint16_t remaining_length;
@@ -1729,7 +1735,7 @@ ssize_t mqtt_pack_publish_request(uint8_t *buf, size_t bufsz,
 
 ssize_t mqtt_unpack_publish_response(struct mqtt_response *mqtt_response, const uint8_t *buf)
 {    
-    const uint8_t const *start = buf;
+    const uint8_t *start = buf;
     struct mqtt_fixed_header *fixed_header;
     struct mqtt_response_publish *response;
     
@@ -1775,7 +1781,7 @@ ssize_t mqtt_pack_pubxxx_request(uint8_t *buf, size_t bufsz,
                                  enum MQTTControlPacketType control_type,
                                  uint16_t packet_id) 
 {
-    const uint8_t const *start = buf;
+    const uint8_t *start = buf;
     struct mqtt_fixed_header fixed_header;
     ssize_t rv;
     if (buf == NULL) {
@@ -1809,7 +1815,7 @@ ssize_t mqtt_pack_pubxxx_request(uint8_t *buf, size_t bufsz,
 
 ssize_t mqtt_unpack_pubxxx_response(struct mqtt_response *mqtt_response, const uint8_t *buf) 
 {
-    const uint8_t const *start = buf;
+    const uint8_t *start = buf;
     uint16_t packet_id;
 
     /* assert remaining length is correct */
@@ -1836,7 +1842,7 @@ ssize_t mqtt_unpack_pubxxx_response(struct mqtt_response *mqtt_response, const u
 
 /* SUBACK */
 ssize_t mqtt_unpack_suback_response (struct mqtt_response *mqtt_response, const uint8_t *buf) {
-    const uint8_t const *start = buf;
+    const uint8_t *start = buf;
     uint32_t remaining_length = mqtt_response->fixed_header.remaining_length;
     
     /* assert remaining length is at least 3 (for packet id and at least 1 topic) */
@@ -1860,7 +1866,7 @@ ssize_t mqtt_unpack_suback_response (struct mqtt_response *mqtt_response, const 
 /* SUBSCRIBE */
 ssize_t mqtt_pack_subscribe_request(uint8_t *buf, size_t bufsz, uint16_t packet_id, ...) {
     va_list args;
-    const uint8_t const *start = buf;
+    const uint8_t *start = buf;
     ssize_t rv;
     struct mqtt_fixed_header fixed_header;
     unsigned int num_subs = 0;
@@ -1925,7 +1931,7 @@ ssize_t mqtt_pack_subscribe_request(uint8_t *buf, size_t bufsz, uint16_t packet_
 /* UNSUBACK */
 ssize_t mqtt_unpack_unsuback_response(struct mqtt_response *mqtt_response, const uint8_t *buf) 
 {
-    const uint8_t const *start = buf;
+    const uint8_t *start = buf;
 
     if (mqtt_response->fixed_header.remaining_length != 2) {
         return MQTT_ERROR_MALFORMED_RESPONSE;
@@ -1941,7 +1947,7 @@ ssize_t mqtt_unpack_unsuback_response(struct mqtt_response *mqtt_response, const
 /* UNSUBSCRIBE */
 ssize_t mqtt_pack_unsubscribe_request(uint8_t *buf, size_t bufsz, uint16_t packet_id, ...) {
     va_list args;
-    const uint8_t const *start = buf;
+    const uint8_t *start = buf;
     ssize_t rv;
     struct mqtt_fixed_header fixed_header;
     unsigned int num_subs = 0;
@@ -2003,7 +2009,7 @@ ssize_t mqtt_pack_unsubscribe_request(uint8_t *buf, size_t bufsz, uint16_t packe
 void mqtt_mq_init(struct mqtt_message_queue *mq, void *buf, size_t bufsz) 
 {
     mq->mem_start = buf;
-    mq->mem_end = buf + bufsz;
+    mq->mem_end = (char *)buf + bufsz;
     mq->curr = buf;
     mq->queue_tail = mq->mem_end;
     mq->curr_sz = mqtt_mq_currsz(mq);
@@ -2046,7 +2052,7 @@ void mqtt_mq_clean(struct mqtt_message_queue *mq) {
     size_t n = mq->curr - new_head->start;
     size_t removing = new_head->start - (uint8_t*) mq->mem_start;
     memmove(mq->mem_start, new_head->start, n);
-    mq->curr = mq->mem_start + n;
+    mq->curr = (uint8_t *)mq->mem_start + n;
 
     /* move queue */
     ssize_t new_tail_idx = new_head - mq->queue_tail;
@@ -2078,7 +2084,7 @@ struct mqtt_queued_message* mqtt_mq_find(struct mqtt_message_queue *mq, enum MQT
 
 /* RESPONSE UNPACKING */
 ssize_t mqtt_unpack_response(struct mqtt_response* response, const uint8_t *buf, size_t bufsz) {
-    const uint8_t const *start = buf;
+    const uint8_t *start = buf;
     ssize_t rv = mqtt_unpack_fixed_header(response, buf, bufsz);
     if (rv <= 0) return rv;
     else buf += rv;

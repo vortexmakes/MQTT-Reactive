@@ -86,6 +86,21 @@ int mqtt_pal_sockopen(const char* addr, const char* port, int af) {
     return sockfd;  
 }
 
+#elif __CIAA_NXP__
+#elif __W32STVC__
+ssize_t 
+mqtt_pal_sendall(int fd, const void* buf, size_t len, int flags) 
+{
+    return 0;
+}
+
+ssize_t 
+mqtt_pal_recvall(int fd, void* buf, size_t bufsz, int flags) 
+{
+    return 0;
+}
+
+#else
 #endif
 
 /** @endcond */
