@@ -1370,7 +1370,7 @@ struct {
 
 ssize_t mqtt_fixed_header_rule_violation(const struct mqtt_fixed_header *fixed_header) {
     uint8_t control_type;
-    uint8_t control_flags;
+    int control_flags;
     uint8_t required_flags;
     uint8_t mask_required_flags;
 
@@ -1687,11 +1687,11 @@ ssize_t mqtt_pack_publish_request(uint8_t *buf, size_t bufsz,
     fixed_header.control_type = MQTT_CONTROL_PUBLISH;
 
     /* calculate remaining length */
-    remaining_length = __mqtt_packed_cstrlen(topic_name);
+    remaining_length = (uint16_t)__mqtt_packed_cstrlen(topic_name);
     if (inspected_qos > 0) {
         remaining_length += 2;
     }
-    remaining_length += application_message_size;
+    remaining_length += (uint16_t)application_message_size;
     fixed_header.remaining_length = remaining_length;
 
     /* force dup to 0 if qos is 0 */
@@ -2126,7 +2126,7 @@ ssize_t mqtt_unpack_response(struct mqtt_response* response, const uint8_t *buf,
 
 /* EXTRA DETAILS */
 ssize_t __mqtt_pack_str(uint8_t *buf, const char* str) {
-    uint16_t length = strlen(str);
+    uint16_t length = (uint16_t)strlen(str);
 
     /* pack string length */
     *(uint16_t*) buf = (uint16_t) MQTT_PAL_HTONS(length);
