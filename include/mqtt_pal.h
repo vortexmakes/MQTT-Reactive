@@ -68,12 +68,13 @@
     #include <string.h>
     #include <stdarg.h>
     #include <time.h>
-    #include <Winsock2.h>
+    #include <winsock.h>
+    #include "epoch.h"
 
     #define MQTT_PAL_HTONS(s) htons(s)
     #define MQTT_PAL_NTOHS(s) ntohs(s)
 
-    #define MQTT_PAL_TIME() time(NULL)
+    #define MQTT_PAL_TIME() (time_t)epoch_get()
 
     typedef time_t mqtt_pal_time_t;
     typedef int mqtt_pal_mutex_t;

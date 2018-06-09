@@ -1376,4 +1376,6 @@ enum MQTTErrors __mqtt_ping(struct mqtt_client *client);
  */
 enum MQTTErrors mqtt_disconnect(struct mqtt_client *client);
 
+#include "mqtt_sync.h"
+
 #endif

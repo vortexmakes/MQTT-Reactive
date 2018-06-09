@@ -371,22 +371,8 @@ enum MQTTErrors mqtt_disconnect(struct mqtt_client *client)
 }
 
 #if 1
-typedef struct LocalSendAll LocalSendAll;
-struct LocalSendAll
-{
-    uint8_t inspected;
-    int len;
-    int inflight_qos2;
-    int i;
-    int resend;
-    ssize_t tmp;
-    struct mqtt_queued_message *msg;
-    int initResult;
-    int setMsgStateResult;
-};
-
-static void
-initSendAll(struct mqtt_client *client, LocalSendAll *local)
+void
+mqtt_initSendAll(struct mqtt_client *client, LocalSendAll *local)
 {
     if (client->error < 0 && client->error != MQTT_ERROR_SEND_BUFFER_IS_FULL) {
         local->initResult = client->error;
@@ -400,14 +386,14 @@ initSendAll(struct mqtt_client *client, LocalSendAll *local)
     }
 }
 
-static int
-isThereMsg(LocalSendAll *local)
+int
+mqtt_isThereMsg(LocalSendAll *local)
 {
     return (local->i < local->len);
 }
 
-static void
-sendOneMsg(struct mqtt_client *client, LocalSendAll *local)
+void
+mqtt_sendOneMsg(struct mqtt_client *client, LocalSendAll *local)
 {
     local->msg = mqtt_mq_get(&client->mq, local->i);
     local->resend = 0;
@@ -440,15 +426,15 @@ sendOneMsg(struct mqtt_client *client, LocalSendAll *local)
     }
 }
 
-static void
-sendMsgFail(struct mqtt_client *client, LocalSendAll *local)
+void
+mqtt_sendMsgFail(struct mqtt_client *client, LocalSendAll *local)
 {
     client->error = local->tmp;
     MQTT_PAL_MUTEX_UNLOCK(&client->mutex);
 }
 
-static void
-setMsgState(struct mqtt_client *client, LocalSendAll *local)
+void
+mqtt_setMsgState(struct mqtt_client *client, LocalSendAll *local)
 {
     local->setMsgStateResult = MQTT_OK;
 
@@ -510,26 +496,26 @@ setMsgState(struct mqtt_client *client, LocalSendAll *local)
     local->setMsgStateResult = MQTT_OK;
 }
 
-static int
-isInitOk(LocalSendAll *local)
+int
+mqtt_isInitOk(LocalSendAll *local)
 {
     return local->initResult == MQTT_OK;
 }
 
-static int
-isSetMsgStateResult(LocalSendAll *local)
+int
+mqtt_isSetMsgStateResult(LocalSendAll *local)
 {
     return local->setMsgStateResult == MQTT_OK;
 }
 
-static void
-nextSend(LocalSendAll *local)
+void
+mqtt_nextSend(LocalSendAll *local)
 {
     ++local->i;
 }
 
-static int
-endSendAll(struct mqtt_client *client)
+int
+mqtt_endSendAll(struct mqtt_client *client)
 {
     /* check for keep-alive */
     mqtt_pal_time_t keep_alive_timeout = client->time_of_last_send + (mqtt_pal_time_t) ((float) (client->keep_alive) * 0.75);
@@ -551,25 +537,25 @@ ssize_t __mqtt_send(struct mqtt_client *client)
     MQTT_PAL_MUTEX_LOCK(&client->mutex);
     LocalSendAll local;
     
-    initSendAll(client, &local);
-    if (isInitOk(&local)) { 
+    mqtt_initSendAll(client, &local);
+    if (mqtt_isInitOk(&local)) { 
         /* loop through all messages in the queue */
-        for (; isThereMsg(&local);) {
-            sendOneMsg(client, &local);
+        for (; mqtt_isThereMsg(&local); ) {
+            mqtt_sendOneMsg(client, &local);
             if (local.resend) { /* goto next message if we don't need to send */
                 if (local.tmp < 0) { /* On receive evSendFail event */
-                    sendMsgFail(client, &local);
+                    mqtt_sendMsgFail(client, &local);
                     return local.tmp;
                 }
-                setMsgState(client, &local);
-                if (!isSetMsgStateResult(&local)) { 
+                mqtt_setMsgState(client, &local);
+                if (!mqtt_isSetMsgStateResult(&local)) { 
                     MQTT_PAL_MUTEX_UNLOCK(&client->mutex);
                     return local.setMsgStateResult;
                 }
             }
-            nextSend(&local);
+            mqtt_nextSend(&local);
         }
-        return endSendAll(client);
+        return mqtt_endSendAll(client);
     }
     MQTT_PAL_MUTEX_UNLOCK(&client->mutex);
     return local.initResult;
@@ -700,37 +686,27 @@ ssize_t __mqtt_send(struct mqtt_client *client)
 #endif
 
 #if 1
-typedef struct LocalRecvAll LocalRecvAll;
-struct LocalRecvAll
-{
-    ssize_t rv;
-    ssize_t consumed;
-    struct mqtt_response response;
-    struct mqtt_queued_message *msg;
-    int handleRecvMsgResult;
-};
-
-static void
-initRecvAll(void)
+void
+mqtt_initRecvAll(void)
 {
 }
 
-static void
-recvAll(struct mqtt_client *client, LocalRecvAll *local)
+void
+mqtt_recvAll(struct mqtt_client *client, LocalRecvAll *local)
 {
     local->rv = mqtt_pal_recvall(client->socketfd, client->recv_buffer.curr, 
                                  client->recv_buffer.curr_sz, 0);
 }
 
-static void
-recvFail(struct mqtt_client *client, LocalRecvAll *local)
+void
+mqtt_recvFail(struct mqtt_client *client, LocalRecvAll *local)
 {
     client->error = local->rv;
     MQTT_PAL_MUTEX_UNLOCK(&client->mutex);
 }
 
-static void
-parseRecv(struct mqtt_client *client, LocalRecvAll *local)
+void
+mqtt_parseRecv(struct mqtt_client *client, LocalRecvAll *local)
 {
     client->recv_buffer.curr += local->rv;
     client->recv_buffer.curr_sz -= local->rv;
@@ -743,52 +719,58 @@ parseRecv(struct mqtt_client *client, LocalRecvAll *local)
 }
 
 
-static int
-isConsumed(LocalRecvAll *local)
+int
+mqtt_isConsumed(LocalRecvAll *local)
 {
     return local->consumed > 0;
 }
 
-static int
-isUnpackError(LocalRecvAll *local)
+int
+mqtt_isUnpackError(LocalRecvAll *local)
 {
     return local->consumed < 0;
 }
 
-static void
-parseError(struct mqtt_client *client, LocalRecvAll *local)
+void
+mqtt_parseError(struct mqtt_client *client, LocalRecvAll *local)
 {
     client->error = local->consumed;
     MQTT_PAL_MUTEX_UNLOCK(&client->mutex);
 }
 
-static int
-noConsumed(struct mqtt_client *client, LocalRecvAll *local)
+int 
+mqtt_isRecvBufFull(LocalRecvAll *local)
+{
+    return local->noConsumedResult != MQTT_OK;
+}
+
+int
+mqtt_noConsumed(struct mqtt_client *client, LocalRecvAll *local)
 {
     (void *)local;
 
     /* if curr_sz is 0 then the buffer is too small to ever fit the message */
     if (client->recv_buffer.curr_sz == 0) {
         client->error = MQTT_ERROR_RECV_BUFFER_TOO_SMALL;
+        local->noConsumedResult = MQTT_ERROR_RECV_BUFFER_TOO_SMALL;
         MQTT_PAL_MUTEX_UNLOCK(&client->mutex);
         return MQTT_ERROR_RECV_BUFFER_TOO_SMALL;
     }
 
     /* just need to wait for the rest of the data */
+    local->noConsumedResult = MQTT_OK;
     MQTT_PAL_MUTEX_UNLOCK(&client->mutex);
     return MQTT_OK;
 }
 
-static int
-isNotError(struct mqtt_client *client, LocalRecvAll *local)
+int
+mqtt_isNotError(LocalRecvAll *local)
 {
-    (void *)client;
-
     return local->handleRecvMsgResult == MQTT_OK;
 }
 
-static void
-handleRecvMsg(struct mqtt_client *client, LocalRecvAll *local)
+void
+mqtt_handleRecvMsg(struct mqtt_client *client, LocalRecvAll *local)
 {
     local->handleRecvMsgResult = MQTT_OK;
 
@@ -999,8 +981,8 @@ handleRecvMsg(struct mqtt_client *client, LocalRecvAll *local)
     }
 }
 
-static void
-cleanBuf(struct mqtt_client *client, LocalRecvAll *local)
+void
+mqtt_cleanBuf(struct mqtt_client *client, LocalRecvAll *local)
 {
     /* we've handled the response, now clean the buffer */
     void *dest = client->recv_buffer.mem_start;
@@ -1011,8 +993,8 @@ cleanBuf(struct mqtt_client *client, LocalRecvAll *local)
     client->recv_buffer.curr_sz += local->consumed;
 }
 
-static void
-recvMsgError(struct mqtt_client *client, LocalRecvAll *local)
+void
+mqtt_recvMsgError(struct mqtt_client *client, LocalRecvAll *local)
 {
     (void *)local;
 
@@ -1024,32 +1006,38 @@ ssize_t __mqtt_recv(struct mqtt_client *client)
     MQTT_PAL_MUTEX_LOCK(&client->mutex);
     LocalRecvAll local;
 
-    initRecvAll();
+    mqtt_initRecvAll();
 
     while(1) { /* read until there is nothing left to read */
-        recvAll(client, &local); /* read in as many bytes as possible */
+        mqtt_recvAll(client, &local); /* read in as many bytes as possible */
         if (local.rv < 0) { /* On receive evRecvFail event */
-            recvFail(client, &local); /* an error occurred */
+            mqtt_recvFail(client, &local); /* an error occurred */
             return local.rv;
         }
 
-        parseRecv(client, &local);
+        mqtt_parseRecv(client, &local);
 
-        if (isConsumed(&local)) {
-            handleRecvMsg(client, &local);
-            if (isNotError(client, &local)) {
-                cleanBuf(client, &local);
+        if (mqtt_isConsumed(&local)) {
+            mqtt_handleRecvMsg(client, &local);
+            if (mqtt_isNotError(&local)) {
+                mqtt_cleanBuf(client, &local);
             }
             else {
-                recvMsgError(client, &local);
+                mqtt_recvMsgError(client, &local);
                 return local.handleRecvMsgResult;
             }
         }
-        else if (isUnpackError(&local)) {
-            parseError(client, &local);
+        else if (mqtt_isUnpackError(&local)) {
+            mqtt_parseError(client, &local);
             return local.consumed;
         } else {
-            return noConsumed(client, &local);
+            mqtt_noConsumed(client, &local);
+            if (mqtt_isRecvBufFull(&local)) {
+                return local.noConsumedResult;
+            }
+            else {
+                return MQTT_OK;
+            }
         }
     }
 
