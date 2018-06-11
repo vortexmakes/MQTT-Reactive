@@ -820,6 +820,8 @@ mqtt_handleRecvMsg(struct mqtt_client *client, LocalRecvAll *local)
             local->msg->state = MQTT_QUEUED_COMPLETE;
             /* initialize typical response time */
             client->typical_response_time = (double) (MQTT_PAL_TIME() - local->msg->time_sent);
+            /* call connack callback */
+            client->connack_response_callback(local->response.decoded.connack.return_code);
             /* check that connection was successful */
             if (local->response.decoded.connack.return_code != MQTT_CONNACK_ACCEPTED) {
                 client->error = MQTT_ERROR_CONNECTION_REFUSED;

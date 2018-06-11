@@ -1080,6 +1080,11 @@ struct mqtt_client {
     void* publish_response_callback_state;
 
     /**
+     * @brief The callback that is called whenever a connection ack is received from the broker.
+     */
+    void (*connack_response_callback)(enum MQTTConnackReturnCode return_code);
+
+    /**
      * @brief The buffer where ingress data is temporarily stored.
      */
     struct {
