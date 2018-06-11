@@ -422,7 +422,7 @@ mqtt_sendOneMsg(struct mqtt_client *client, LocalSendAll *local)
     }
     if (local->resend) {
         /* we're sending the message */
-        local->tmp = mqtt_pal_sendall(client->socketfd, local->msg->start, local->msg->size, 0);
+        /*local->tmp = mqtt_pal_sendall(client->socketfd, local->msg->start, local->msg->size, 0);*/
     }
 }
 
