@@ -63,6 +63,28 @@
 
     int mqtt_pal_sockopen(const char* addr, const char* port, int af);
 #elif __CIAA_NXP__
+    #include <limits.h>
+    #include <string.h>
+    #include <stdarg.h>
+    #include <time.h>
+    #include "epoch.h"
+    #include "Endianness.h"
+
+    #define MQTT_PAL_HTONS(s) cpu_to_be16(s)
+    #define MQTT_PAL_NTOHS(s) be16_to_cpu(s)
+
+    #define MQTT_PAL_TIME() (time_t)epoch_get()
+
+    typedef time_t mqtt_pal_time_t;
+    typedef int mqtt_pal_mutex_t;
+    typedef int ssize_t;
+    typedef unsigned char uint8_t;
+    typedef unsigned short uint16_t;
+    typedef unsigned long uint32_t;
+
+    #define MQTT_PAL_MUTEX_INIT(mtx_ptr)
+    #define MQTT_PAL_MUTEX_LOCK(mtx_ptr)
+    #define MQTT_PAL_MUTEX_UNLOCK(mtx_ptr)
 #elif __W32STVC__
     #include <limits.h>
     #include <string.h>
