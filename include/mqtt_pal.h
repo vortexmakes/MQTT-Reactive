@@ -78,9 +78,6 @@
     typedef time_t mqtt_pal_time_t;
     typedef int mqtt_pal_mutex_t;
     typedef int ssize_t;
-    typedef unsigned char uint8_t;
-    typedef unsigned short uint16_t;
-    typedef unsigned long uint32_t;
 
     #define MQTT_PAL_MUTEX_INIT(mtx_ptr)
     #define MQTT_PAL_MUTEX_LOCK(mtx_ptr)
