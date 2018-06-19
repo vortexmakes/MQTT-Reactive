@@ -1293,6 +1293,14 @@ ssize_t __mqtt_recv(struct mqtt_client *client)
 }
 #endif
 
+enum MQTTErrors mqtt_recovery(struct mqtt_client *client)
+{
+    if (client->error == MQTT_ERROR_SOCKET_ERROR) {
+        client->error = MQTT_OK;
+    }
+    return MQTT_OK;
+}
+
 /* FIXED HEADER */
 
 #define MQTT_BITFIELD_RULE_VIOLOATION(bitfield, rule_value, rule_mask) ((bitfield ^ rule_value) & rule_mask)
