@@ -1295,7 +1295,8 @@ ssize_t __mqtt_recv(struct mqtt_client *client)
 
 enum MQTTErrors mqtt_recovery(struct mqtt_client *client)
 {
-    if (client->error == MQTT_ERROR_SOCKET_ERROR) {
+    if (client->error == MQTT_ERROR_SOCKET_ERROR ||
+        client->error == MQTT_ERROR_ACK_OF_UNKNOWN) {
         client->error = MQTT_OK;
     }
     return MQTT_OK;
