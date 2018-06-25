@@ -67,7 +67,7 @@ enum MQTTErrors mqtt_init(struct mqtt_client *client,
     client->recv_buffer.curr_sz = client->recv_buffer.mem_size;
 
     client->error = MQTT_ERROR_CLIENT_NOT_CONNECTED;
-    client->response_timeout = 30;
+    client->response_timeout = 60;
     client->number_of_timeouts = 0;
     client->number_of_keep_alives = 0;
     client->typical_response_time = -1.0;
