@@ -708,14 +708,21 @@ mqtt_recvFail(struct mqtt_client *client, LocalRecvAll *local)
 void
 mqtt_parseRecv(struct mqtt_client *client, LocalRecvAll *local)
 {
-    client->recv_buffer.curr += local->rv;
-    client->recv_buffer.curr_sz -= local->rv;
+    if (local->rv != 0)
+    {
+        client->recv_buffer.curr += local->rv;
+        client->recv_buffer.curr_sz -= local->rv;
 
-    /* attempt to parse */
-    local->consumed = mqtt_unpack_response(&local->response, 
-                                           client->recv_buffer.mem_start, 
-                                           client->recv_buffer.curr - 
-                                           client->recv_buffer.mem_start);
+        /* attempt to parse */
+        local->consumed = mqtt_unpack_response(&local->response, 
+                                               client->recv_buffer.mem_start, 
+                                               client->recv_buffer.curr - 
+                                               client->recv_buffer.mem_start);
+    }
+    else
+    {
+        local->consumed = 0;
+    }
 }
 
 
