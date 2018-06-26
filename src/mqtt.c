@@ -1010,6 +1010,18 @@ mqtt_recvMsgError(struct mqtt_client *client, LocalRecvAll *local)
     MQTT_PAL_MUTEX_UNLOCK(&client->mutex);
 }
 
+int
+mqtt_isReconnect(struct mqtt_client *client)
+{
+    int result = 0;
+
+    if (client->error == MQTT_ERROR_SOCKET_ERROR ||
+        client->error == MQTT_ERROR_ACK_OF_UNKNOWN) {
+        client->error = MQTT_OK;
+    }
+    return result;
+}
+
 ssize_t __mqtt_recv(struct mqtt_client *client) 
 {
     MQTT_PAL_MUTEX_LOCK(&client->mutex);
@@ -1299,15 +1311,6 @@ ssize_t __mqtt_recv(struct mqtt_client *client)
     return MQTT_OK;
 }
 #endif
-
-enum MQTTErrors mqtt_recovery(struct mqtt_client *client)
-{
-    if (client->error == MQTT_ERROR_SOCKET_ERROR ||
-        client->error == MQTT_ERROR_ACK_OF_UNKNOWN) {
-        client->error = MQTT_OK;
-    }
-    return MQTT_OK;
-}
 
 /* FIXED HEADER */
 

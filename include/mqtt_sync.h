@@ -79,6 +79,7 @@ void mqtt_handleRecvMsg(struct mqtt_client *client, LocalRecvAll *local);
 void mqtt_cleanBuf(struct mqtt_client *client, LocalRecvAll *local);
 void mqtt_recvMsgError(struct mqtt_client *client, LocalRecvAll *local);
 int mqtt_isRecvBufFull(LocalRecvAll *local);
+int mqtt_isReconnect(struct mqtt_client *client);
 
 /* -------------------- External C language linkage end -------------------- */
 #ifdef __cplusplus
