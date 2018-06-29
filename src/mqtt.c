@@ -77,6 +77,16 @@ enum MQTTErrors mqtt_init(struct mqtt_client *client,
     return MQTT_OK;
 }
 
+static void __mqtt_clean_connection(struct mqtt_client *client)
+{
+    struct mqtt_queued_message *msg;
+    
+    msg = mqtt_mq_find(&client->mq, MQTT_CONTROL_CONNECT, NULL);
+    if (msg != NULL){
+        msg->state = MQTT_QUEUED_COMPLETE;
+    }
+}
+
 /** 
  * A macro function that:
  *      1) Checks that the client isn't in an error state.
@@ -132,6 +142,9 @@ enum MQTTErrors mqtt_connect(struct mqtt_client *client,
         client->error = MQTT_OK;
     }
     
+    /* clean previous connection */
+    __mqtt_clean_connection(client);
+
     /* try to pack the message */
     MQTT_CLIENT_TRY_PACK(rv, msg, client, 
         mqtt_pack_connection_request(
