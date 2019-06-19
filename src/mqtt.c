@@ -1018,6 +1018,7 @@ mqtt_cleanBuf(struct mqtt_client *client, LocalRecvAll *local)
 void
 mqtt_recvMsgError(struct mqtt_client *client, LocalRecvAll *local)
 {
+    (void *)client;
     (void *)local;
 
     MQTT_PAL_MUTEX_UNLOCK(&client->mutex);
