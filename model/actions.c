@@ -9,31 +9,80 @@
 /* ----------------------------- Include files ----------------------------- */
 /* ----------------------------- Local macros ------------------------------ */
 /* ------------------------------- Constants ------------------------------- */
+static const MQTTProtCfg configDft =
+{
+    60, 5, "publishing_cLient", 400, "date_time", 0
+};
+
 /* ---------------------------- Local data types --------------------------- */
+typedef struct ConnRefusedEvt ConnRefusedEvt;
+struct ConnRefusedEvt
+{
+    RKH_EVT_T evt;
+    enum MQTTConnackReturnCode code;
+};
+
+typedef struct AppData AppData;
+struct AppData
+{
+    rui8_t *data;
+    rui16_t size;
+};
+
+typedef rui16_t (*MQTTProtPublish)(AppData *appMsg);
+
+typedef struct MQTTProtCfg MQTTProtCfg;
+struct MQTTProtCfg
+{
+    rui16_t publishTime;    /* in secs */
+    rui16_t syncTime;       /* in secs */
+    char clientId[23];
+    rui16_t keepAlive;      /* in secs */
+    char topic[20];
+    rui8_t qos;             /* 0, 1 or 2 */
+};
+typedef struct MqttClient MqttClient;
+struct MqttClient
+{
+    struct mqtt_client client;
+    uint8_t sendbuf[2048];  /* sendbuf should be large enough to hold */
+                            /* multiple whole mqtt messages */
+    uint8_t recvbuf[1024];  /* recvbuf should be large enough any whole */
+                            /* mqtt message expected to be received */
+    enum MQTTErrors operRes;
+    MQTTProtCfg *config;
+    MQTTProtPublish publisher;
+    const char *errorStr;
+};
+
 /* ---------------------------- Global variables --------------------------- */
 /* ---------------------------- Local variables ---------------------------- */
-static RKH_QUEUE_T deferQueue;
-static RKH_EVT_T *deferQueueStorage[MAX_SIZEOF_DEFERQUEUE];
+static Queue deferQueue;
+static Event *deferQueueStorage[MAX_SIZEOF_DEFERQUEUE];
+static SendEvt evSendObj;
+static ConnRefusedEvt evConnRefusedObj;
+static LocalSendAll localSend;
+static LocalRecvAll localRecv;
 
 /* ----------------------- Local function prototypes ----------------------- */
 /* ---------------------------- Local functions ---------------------------- */
 static void
 connack_response_callback(enum MQTTConnackReturnCode return_code)
 {
-    MQTTProt *me;
-    RKH_EVT_T *evt;
+    MqttClient *me;
+    Event *evt;
 
-    me = RKH_DOWNCAST(MQTTProt, mqttProt);
+    me = RKH_DOWNCAST(MqttClient, mqttProt);
     if (return_code == MQTT_CONNACK_ACCEPTED)
     {
-        evt = RKH_UPCAST(RKH_EVT_T, &evConnAcceptedObj);
+        evt = RKH_UPCAST(Event, &evConnAcceptedObj);
     }
     else
     {
-        evConnRefusedObj.code = return_code;
-        evt = RKH_UPCAST(RKH_EVT_T, &evConnRefusedObj);
+        evConnRefusedObj.code = return_code;    /* it should be dynamic */
+        evt = RKH_UPCAST(Event, &evConnRefusedObj);
     }
-    RKH_SMA_POST_FIFO(RKH_UPCAST(RKH_SMA_T, me), evt, me);
+    postEvent(me, evt);
 }
 
 /* ---------------------------- Global functions --------------------------- */
@@ -41,9 +90,9 @@ connack_response_callback(enum MQTTConnackReturnCode return_code)
 void
 initialize(...)
 {
-    rkh_queue_init(&deferQueue, 
-                   (const void **)deferQueueStorage, 
-                   MAX_SIZEOF_DEFERQUEUE, NULL);
+    queue_init(&deferQueue, 
+               (const void **)deferQueueStorage, 
+               MAX_SIZEOF_DEFERQUEUE, NULL);
 
     mqtt_init(&me->client, 0, 
               me->sendbuf, sizeof(me->sendbuf), me->recvbuf, 
@@ -65,7 +114,7 @@ void
 publish(...)
 {
     AppData appMsg;
-    rui16_t pubTime;
+    uint16_t pubTime;
 
 	(void)pe;
 
@@ -82,7 +131,7 @@ publish(...)
 }
 
 void 
-initRecvAll(SyncRegion *const me, RKH_EVT_T *pe)
+initRecvAll(MqttClient *const me, Event *pe)
 {
 	(void)pe;
 
@@ -91,132 +140,99 @@ initRecvAll(SyncRegion *const me, RKH_EVT_T *pe)
 }
 
 void 
-parseRecv(SyncRegion *const me, RKH_EVT_T *pe)
+parseRecv(MqttClient *const me, Event *pe)
 {
-    MQTTProt *realMe;
     ReceivedEvt *evt;
 
-    realMe = me->itsMQTTProt;
     evt = RKH_DOWNCAST(ReceivedEvt, pe);
-
-    memcpy(realMe->client.recv_buffer.curr, evt->buf, evt->size);
+    memcpy(me->client.recv_buffer.curr, evt->buf, evt->size);
     localRecv.rv = evt->size;
-    mqtt_parseRecv(&realMe->client, &localRecv);
+    mqtt_parseRecv(&me->client, &localRecv);
 }
 
 void 
-recvFail(SyncRegion *const me, RKH_EVT_T *pe)
+recvFail(MqttClient *const me, Event *pe)
 {
-    MQTTProt *realMe;
-
 	(void)pe;
 
-    realMe = me->itsMQTTProt;
     localRecv.rv = MQTT_ERROR_SOCKET_ERROR;
-    mqtt_recvFail(&realMe->client, &localRecv); /* an error occurred */
+    mqtt_recvFail(&me->client, &localRecv); /* an error occurred */
 }
 
 void 
-parseError(SyncRegion *const me, RKH_EVT_T *pe)
+parseError(MqttClient *const me, Event *pe)
 {
-    MQTTProt *realMe;
-
 	(void)pe;
 
-    realMe = me->itsMQTTProt;
-    mqtt_parseError(&realMe->client, &localRecv);
+    mqtt_parseError(&me->client, &localRecv);
 }
 
 void 
-noConsumed(SyncRegion *const me, RKH_EVT_T *pe)
+noConsumed(MqttClient *const me, Event *pe)
 {
-    MQTTProt *realMe;
-
 	(void)pe;
 
-    realMe = me->itsMQTTProt;
-    mqtt_noConsumed(&realMe->client, &localRecv);
+    mqtt_noConsumed(&me->client, &localRecv);
 }
 
 void 
-handleRecvMsg(SyncRegion *const me, RKH_EVT_T *pe)
+handleRecvMsg(MqttClient *const me, Event *pe)
 {
-    MQTTProt *realMe;
-
 	(void)pe;
 
-    realMe = me->itsMQTTProt;
-    mqtt_handleRecvMsg(&realMe->client, &localRecv);
+    mqtt_handleRecvMsg(&me->client, &localRecv);
 }
 
 void 
-recvMsgError(SyncRegion *const me, RKH_EVT_T *pe)
+recvMsgError(MqttClient *const me, Event *pe)
 {
-    MQTTProt *realMe;
-
 	(void)pe;
 
-    realMe = me->itsMQTTProt;
-    mqtt_recvMsgError(&realMe->client, &localRecv);
+    mqtt_recvMsgError(&me->client, &localRecv);
 }
 
 void 
-cleanBuf(SyncRegion *const me, RKH_EVT_T *pe)
+cleanBuf(MqttClient *const me, Event *pe)
 {
-    MQTTProt *realMe;
-
 	(void)pe;
 
-    realMe = me->itsMQTTProt;
-    mqtt_cleanBuf(&realMe->client, &localRecv);
+    mqtt_cleanBuf(&me->client, &localRecv);
 }
 
 void 
-initSendAll(SyncRegion *const me, RKH_EVT_T *pe)
+initSendAll(MqttClient *const me, Event *pe)
 {
-    MQTTProt *realMe;
-
 	(void)pe;
 
-    realMe = me->itsMQTTProt;
-    mqtt_initSendAll(&realMe->client, &localSend);
+    mqtt_initSendAll(&me->client, &localSend);
 }
 
 void 
-initSendAll(SyncRegion *const me, RKH_EVT_T *pe)
+initSendAll(MqttClient *const me, Event *pe)
 {
-    MQTTProt *realMe;
-
 	(void)pe;
 
-    realMe = me->itsMQTTProt;
-    mqtt_initSendAll(&realMe->client, &localSend);
+    mqtt_initSendAll(&me->client, &localSend);
 }
 
 void 
-endSendAll(SyncRegion *const me, RKH_EVT_T *pe)
+endSendAll(MqttClient *const me, Event *pe)
 {
-    MQTTProt *realMe;
-
 	(void)pe;
 
-    realMe = me->itsMQTTProt;
-    mqtt_endSendAll(&realMe->client);
+    mqtt_endSendAll(&me->client);
 }
 
 void 
-sendOneMsg(SyncRegion *const me, RKH_EVT_T *pe)
+sendOneMsg(MqttClient *const me, Event *pe)
 {
-    MQTTProt *realMe;
-
 	(void)pe;
 
-    realMe = me->itsMQTTProt;
-    mqtt_sendOneMsg(&realMe->client, &localSend);
+    mqtt_sendOneMsg(&me->client, &localSend);
 }
 
 void 
-nextSend(SyncRegion *const me, RKH_EVT_T *pe)
+nextSend(MqttClient *const me, Event *pe)
 {
 	(void)me;
 	(void)pe;
@@ -225,69 +241,57 @@ nextSend(SyncRegion *const me, RKH_EVT_T *pe)
 }
 
 void 
-sendMsgFail(SyncRegion *const me, RKH_EVT_T *pe)
+sendMsgFail(MqttClient *const me, Event *pe)
 {
-    MQTTProt *realMe;
-
 	(void)pe;
 
-    realMe = me->itsMQTTProt;
     localSend.tmp = MQTT_ERROR_SOCKET_ERROR;
-    mqtt_sendMsgFail(&realMe->client, &localSend);
+    mqtt_sendMsgFail(&me->client, &localSend);
 }
 
 void 
-setMsgState(SyncRegion *const me, RKH_EVT_T *pe)
+setMsgState(MqttClient *const me, Event *pe)
 {
-    MQTTProt *realMe;
-
 	(void)pe;
 
-    realMe = me->itsMQTTProt;
-    mqtt_setMsgState(&realMe->client, &localSend);
+    mqtt_setMsgState(&me->client, &localSend);
 }
 
 void 
-recall(SyncRegion *const me, RKH_EVT_T *pe)
+recall(MqttClient *const me, Event *pe)
 {
-    rkh_sma_recall(me, &deferQueue);
+    recallEvent(me, &deferQueue);
 }
 
 void 
-defer(SyncRegion *const me, RKH_EVT_T *pe)
+defer(MqttClient *const me, Event *pe)
 {
-    rkh_sma_defer(&deferQueue, pe);
+    deferEvent(&deferQueue, pe);
 }
 
 /* ............................. Entry actions ............................. */
 void 
-recvAll(SyncRegion *const me, RKH_EVT_T *pe)
+recvAll(MqttClient *const me, Event *pe)
 {
-    MQTTProt *realMe;
-
 	(void)pe;
 
-    realMe = me->itsMQTTProt;
-    ConnectionTopic_publish(&evRecvObj, realMe);
+    ConnectionTopic_publish(&evRecvObj, me);
 }
 
 void 
-sendAll(SyncRegion *const me, RKH_EVT_T *pe)
+sendAll(MqttClient *const me, Event *pe)
 {
-    MQTTProt *realMe;
-
 	(void)pe;
 
-    realMe = me->itsMQTTProt;
     evSendObj.size = localSend.msg->size;
     memcpy(evSendObj.buf, localSend.msg->start, localSend.msg->size);
-    ConnectionTopic_publish(&evSendObj, realMe);
+    ConnectionTopic_publish(&evSendObj, me);
 }
 
 /* ............................. Exit actions .............................. */
 /* ................................ Guards ................................. */
 rbool_t 
-isRecvBufFull(const RKH_SM_T *me, RKH_EVT_T *pe)
+isRecvBufFull(MqttClient *const me, Event *pe)
 {
 	(void)me;
 	(void)pe;
@@ -296,7 +300,7 @@ isRecvBufFull(const RKH_SM_T *me, RKH_EVT_T *pe)
 }
 
 rbool_t 
-isInitOk(const RKH_SM_T *me, RKH_EVT_T *pe)
+isInitOk(MqttClient *const me, Event *pe)
 {
 	(void)me;
 	(void)pe;
@@ -305,7 +309,7 @@ isInitOk(const RKH_SM_T *me, RKH_EVT_T *pe)
 }
 
 rbool_t 
-isThereMsg(const RKH_SM_T *me, RKH_EVT_T *pe)
+isThereMsg(MqttClient *const me, Event *pe)
 {
 	(void)me;
 	(void)pe;
@@ -314,7 +318,7 @@ isThereMsg(const RKH_SM_T *me, RKH_EVT_T *pe)
 }
 
 rbool_t 
-isNotResend(const RKH_SM_T *me, RKH_EVT_T *pe)
+isNotResend(MqttClient *const me, Event *pe)
 {
 	(void)me;
 	(void)pe;
@@ -323,7 +327,7 @@ isNotResend(const RKH_SM_T *me, RKH_EVT_T *pe)
 }
 
 rbool_t 
-isSetMsgStateOk(const RKH_SM_T *me, RKH_EVT_T *pe)
+isSetMsgStateOk(MqttClient *const me, Event *pe)
 {
 	(void)me;
 	(void)pe;
@@ -332,7 +336,7 @@ isSetMsgStateOk(const RKH_SM_T *me, RKH_EVT_T *pe)
 }
 
 rbool_t 
-isUnpackError(const RKH_SM_T *me, RKH_EVT_T *pe)
+isUnpackError(MqttClient *const me, Event *pe)
 {
 	(void)me;
 	(void)pe;
@@ -341,7 +345,7 @@ isUnpackError(const RKH_SM_T *me, RKH_EVT_T *pe)
 }
 
 rbool_t 
-isConsumed(const RKH_SM_T *me, RKH_EVT_T *pe)
+isConsumed(MqttClient *const me, Event *pe)
 {
 	(void)me;
 	(void)pe;
@@ -350,7 +354,7 @@ isConsumed(const RKH_SM_T *me, RKH_EVT_T *pe)
 }
 
 rbool_t 
-isNotError(const RKH_SM_T *me, RKH_EVT_T *pe)
+isNotError(MqttClient *const me, Event *pe)
 {
 	(void)me;
 	(void)pe;
