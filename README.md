@@ -15,6 +15,31 @@ The state machine in Figure 1 starts in the WaitingForNetConnection state. After
 Every SyncTime milliseconds the state machine transitions to the Sync composite state, which does the actual sending and receiving of traffic from the network by posting Receive and Send events to the network manager. It is a concurrent entity that deals with network issues.
 Even though the introduced MqttMgr only supports the CONNECT and PUBLISH packets, it could support the SUBSCRIBE packet with rather simple changes.
 
+The following table summarizes the involved events in the shown state machine.
+
+Event | Parameter Name | Parameter Type
+------|----------------|---------------
+Active | - | -
+Deactive | - | -
+NetDisconnected | - | -
+Connect | clientId | char [23]
+Connect | keepAlive | uint16_t
+Publish | data | uint8_t [2048]
+Publish | size | int
+Publish | topic| char [20]
+Publish | qos | uint8_t
+ConnAccepted | - | -
+ConnRefused | code | MQTTConnackReturnCode
+Receive | - | -
+Received | data | uint8_t [1024]
+Received | size | int
+Send | data | uint8_t [2048]
+Send | size | int
+Sent | - | -
+ReceiveFail | - | -
+SendFail | - | -
+
+
 The state machine actions access to the parameters of the consumed event by using the params keyword. For example, in the following transition, the Connect event carries two parameters, clientId and keepAlive, whose values are used to update the corresponding MqttMgr object’s attributes:
 
 ```c
