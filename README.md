@@ -1,12 +1,12 @@
-# MQTT-C
+# MQTT-C (reactive version)
 MQTT-C is an [MQTT v3.1.1](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html) 
 client written in C. MQTT is a lightweight publisher-subscriber-based messaging protocol that is
 commonly used in IoT and networking applications where high-latency and low data-rate links 
 are expected. The purpose of MQTT-C is to provide a **portable** MQTT client, **written in C**, 
-for embedded systems and PC's alike. MQTT-C does this by providing a transparent Platform 
-Abstraction Layer (PAL) which makes porting to new platforms easy. MQTT-C is completely 
-thread-safe but can also run perfectly fine on single-threaded systems making MQTT-C 
-well-suited for embedded systems and microcontrollers.
+for reactive embedded systems using state machines and active objects. MQTT-C does this by 
+providing a transparent Platform Abstraction Layer (PAL) which makes porting to new platforms 
+easy. MQTT-C is completely thread-safe but can also run perfectly fine on single-threaded 
+systems making MQTT-C well-suited for embedded systems and microcontrollers.
 
 ## Getting Started
 To use MQTT-C you must first instantiate a `struct mqtt_client` and initialize it by calling
