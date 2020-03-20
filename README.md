@@ -1,78 +1,84 @@
-# MQTT-C (reactive version)
-MQTT-C is an [MQTT v3.1.1](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html) 
-client written in C. MQTT is a lightweight publisher-subscriber-based messaging protocol that is
-commonly used in IoT and networking applications where high-latency and low data-rate links 
-are expected. The purpose of MQTT-C is to provide a **portable** MQTT client, **written in C**, 
-for reactive embedded systems using state machines and active objects. MQTT-C does this by 
-providing a transparent Platform Abstraction Layer (PAL) which makes porting to new platforms 
-easy. MQTT-C is completely thread-safe but can also run perfectly fine on single-threaded 
-systems making MQTT-C well-suited for embedded systems and microcontrollers.
+# MQTT-Reactive
+MQTT-Reactive is a [MQTT v3.1.1](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html) client derived from 
+[LiamBindle’s MQTT-C](https://github.com/LiamBindle/MQTT-C) library. The aim 
+of MQTT-Reactive is to provide a portable and non-blocking MQTT client written in C in order to be used in reactive 
+embedded systems.
 
-## Getting Started
-To use MQTT-C you must first instantiate a `struct mqtt_client` and initialize it by calling
-@ref mqtt_init.
+MQTT-Reactive was used through a state machine as shown in Figure 1, which models the basic behavior of a MQTT-Reactive 
+client. The state machine actions in Figure 1 demonstrate how the MQTT-Reactive library could be used from a state machine. 
+Even though the C language was used as the action language in Figure 1, any computer or formal language can be used. 
+
+Figure 1. State machine of a MQTT-Reactive client (Source: [VortexMakes](https://www.vortexmakes.com/))
+
+The state machine in Figure 1 starts in the WaitingForNetConnection state. After a network connection is established to a server, the WaitingForNetConnection receives the Activate event, and then the state machine transitions to WaitingForSync state. Only in this state can the state machine stage MQTT messages to be sent to the broker such as CONNECT or PUBLISH through the Connect and Publish events respectively. The Sync state uses an UML’s special mechanism for deferring the Publish event that is specified by the defer keyword included in the internal compartment of the Sync state. If the  Publish event occurs when Sync is the current state, it will be saved (deferred) for future processing until the SM enters in a state in which the Publish event is not in its deferred event list such as WaitingForSync or WaitingForNetConnection. Upon entry to such states, the state machine will automatically recall any saved Publish event and will then either consume or discard this event according to the transition target state.
+
+Every SyncTime milliseconds the state machine transitions to the Sync composite state, which does the actual sending and receiving of traffic from the network by posting Receive and Send events to the network manager. It is a concurrent entity that deals with network issues.
+Even though the introduced MqttMgr only supports the CONNECT and PUBLISH packets, it could support the SUBSCRIBE packet with rather simple changes.
+
+The state machine actions access to the parameters of the consumed event by using the params keyword. For example, in the following transition, the Connect event carries two parameters, clientId and keepAlive, whose values are used to update the corresponding MqttMgr object’s attributes:
+
 ```c
-    struct mqtt_client client; /* instantiate the client */
-    mqtt_init(&client, ...);   /* initialize the client */
+Connect(clientId, keepAlive)/
+        me->clientId = params->clientId;
+        me->keepAlive = params->keepAlive;
+        me->operRes = mqtt_connect(&me->client, me->clientId, NULL, NULL, 0, 
+                                   NULL, NULL, 0, me->keepAlive);
 ```
-Once your client is initialized you must connect to an MQTT broker.
+
+In this example, the Connect(clientId, keepAlive) event is the trigger of the transition and the mqtt_connect() call is part of the action that is executed as a result. In other words, when the MqttMgr object receives a Connect(clientId, keepAlive) event with the parameters of ‘publishing_client’ and ‘400’, Connect(“publishing_client”, 400), the MqttMgr’s clientId and keepAlive attributes are updated with the values ‘publishing_client’ and ‘400’ consequently.
+
+In order to create and send events the state machine’s actions use the GEN() macro. For example, the following statement sends a Receive event to the Collector object, which is referenced as a MqttMgr object’s attribute  by itsCollector pointer:
+
 ```c
-    mqtt_connect(&client, ...); /* send a connection request to the broker. */
+GEN(me->itsCollector, Receive());
 ```
-At this point the client is ready to use! For example, we can subscribe to like so:
+
+The first argument of the GEN() statement is the object that receives the event, whereas the second argument is the event being sent, including event arguments (if there are any). The arguments must agree with the event parameters. For example, the following statement generates a ConnRefused(code) event and sends it to the Collector object passing the code returned by the broker as an event parameter: 
+
 ```c
-    /* subscribe to "toaster/temperature" with a max QoS level of 0 */
-    mqtt_subscribe(&client, "toaster/temperature", 0);
+GEN(me->itsCollector, ConRefused(code));
 ```
-And we can publish, say the coffee maker's temperature, like so:
+
+The idea of using params keyword to access the consumed event’s parameters and GEN() macro to generate events from actions was adopted from Rational Rhapsody Developer’s code generator for purely illustrative purposes. 
+
+The state machine‘s default action in Figure 1 sets the callback that is called by MQTT-Reactive whenever a connection acceptance is received from the broker. This callback should be implemented within MqttMgr code. This callback must generate either ConnAccepted or ConnRefused(code) events for being sent to the Collector object as it shown below. 
+
 ```c
-    /* publish coffee temperature with a QoS level of 1 */
-    int temperature = 67;
-    mqtt_publish(&client, "coffee/temperature", &temperature, sizeof(int), MQTT_PUBLISH_QOS_1);
+static void
+connack_response_callback(enum MQTTConnackReturnCode return_code)
+{
+    /*...*/
+    if (return_code == MQTT_CONNACK_ACCEPTED)
+    {
+        GEN(me->itsCollector, ConnAccepted());
+    }
+    else
+    {
+        GEN(me->itsCollector, ConnRefused(return_code));
+    }
+}
 ```
 
-## Building
-There are **only two source files** that need to be built, `mqtt.c` and `mqtt_pal.c`.
-You should be able to build these files with any **C99 (or more recent) compilers**.
+The model in Figure 1 could be implemented in C or C++ by using either your favourite software tool or just your own state machine implementation. There are different tools available on the Internet to do that, such as RKH framework, QP framework, Yakindu Statechart Tool, or Rational Rhapsody Developer, among others. All of them support Statecharts and C/C++ languages. Moreover, some of them include a tool to draw a Statechart diagram and to generate code from it.
 
-Then, simply <code>\#include <mqtt.h></code>.
+This state machine was executed from an active object called MqttMgr (MQTT Manager), which provided strict encapsulation of the MQTT-Reactive code and it was the only entity allowed to call any MQTT-Reactive function or access MQTT-Reactive data. The other concurrent entities in the system as well as any ISRs were only able to use MQTT-Reactive indirectly by exchanging events with MqttMgr. The usage of this mechanism to synchronize concurrent entities and to share data among them avoids dealing with the perils of traditional blocking mechanisms like semaphores, mutex, delays, or event-flags. Those mechanisms could cause unexpected malfunctions that are difficult and tedious to diagnose and fix.
 
-## Documentation
-Pre-built documentation can be found at `"docs/index.html"`, or online 
-[here](https://liambindle.ca/MQTT-C). 
+The MqttMgr active object encapsulates its attributes as a set of data items. A data item designates a variable with a name and a type, where the type is actually a data type. A data item for MqttMgr object is mapped to a member of the object’s structure. The member’s name and type are the same as those of the object’s data. For example, the client attribute of the MqttMgr object type is embedded by value as a data member inside the MqttMgr structure:
 
-The @ref api documentation contains all the documentation application programmers should need. 
-The @ref pal documentation contains everything you should need to port MQTT-C to a new platform,
-and the other modules contain documentation for MQTT-C developers.
-
-## Testing and Building the Tests
-The MQTT-C unit tests use the [cmocka unit testing framework](https://cmocka.org/). 
-Therefore, [cmocka](https://cmocka.org/) *must* be installed on your machine to build and run 
-the unit tests. For convenience, a simple `"makefile"` is included to build the unit tests and 
-examples on UNIX-like machines. The unit tests and examples can be built as follows:
-```bash
-    $ make all
-``` 
-The unit tests and examples will be built in the `"bin/"` directory. The unit tests can be run 
-like so:
-```bash
-    $ ./bin/tests [address [port]]
+```c
+struct MqttMgr 
+{
+    /* ... */
+    struct mqtt_client client; /* attribute client */
+    LocalRecvAll localRecv;    /* attribute localRecv */
+};
 ```
-Note that the \c address and \c port arguments are both optional to specify the location of the
-MQTT broker that is to be used for the tests. If no \c address is given then the 
-[Mosquitto MQTT Test Server](https://test.mosquitto.org/) will be used. If no \c port is given, 
-port 1883 will be used.
 
-## Portability
-MQTT-C provides a transparent platform abstraction layer (PAL) in `mqtt_pal.h` and `mqtt_pal.c`.
-These files declare and implement the types and calls that MQTT-C requires. Refer to 
-@ref pal for the complete documentation of the PAL.
+The MqttMgr object’s data are accessed and modified directly without using accessor or mutator operations. For example, client and localRecv are accessed through the me pointer, which points to an instance of MqttMgr.
 
-## Contributing
-Please feel free to submit issues and pull-requests [here](https://github.com/LiamBindle/MQTT-C).
-When submitting a pull-request please ensure you have *fully documented* your changes and 
-added the appropriate unit tests.
-
+```c
+mqtt_recvMsgError(&me->client, &me->localRecv);
+```
 
 ## License
 This project is licensed under the [MIT License](https://opensource.org/licenses/MIT). See the 
@@ -83,4 +89,3 @@ MQTT-C was initially developed as a CMPT 434 (Winter Term, 2018) final project a
 Saskatchewan by:
 - **Liam Bindle**
 - **Demilade Adeoye**
-
