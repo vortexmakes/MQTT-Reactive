@@ -4,8 +4,23 @@ MQTT-Reactive is a [MQTT v3.1.1](http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/
 of MQTT-Reactive is to provide a portable and non-blocking MQTT client written in C in order to be used in reactive 
 embedded systems.
 
+Many embedded systems are reactive, i.e. they react to internal or external events. Once these reactions are completed, the software goes back to wait for the next event. That is why event-driven systems are alternatively called reactive systems.
+The event-driven programming or simply reactive programming is one of the most suitable programming paradigms to achieve a flexible, predictable and maintainable software for reactive systems. In this paradigm the flow of the program is determined by events. Frequently, the reactive software’s structure is composed of several concurrent units, as known as active objects, which wait and process different kinds of events. Each active object owns a thread of control and an event queue through which it processes its incoming events. In reactive systems, the active objects have typically state-based behavior defined in a statechart.
+
+In order to explore how to use the MQTT-Reactive library in a reactive system with multiple and  concurrent tasks and using both a state machine and the event-driven paradigm, we use an IoT device as an example.
+
+The idea of using MQTT protocol was born while an IoT device was being developed for a railway company. This device was a clear reactive system that was able to:
+- detect and store changes of several digital inputs
+- acquire, filter and store several analog signals
+- send stored information to a remote server periodically 
+- send and receive information through MQTT protocol over GSM network
+
+MQTT was chosen because it is a lightweight publisher-subscriber-based messaging protocol that is commonly used in IoT and networking applications where high-latency and low data-rate links are expected such as the GSM networks.
+
+The MQTT capability for the mentioned IoT device was accomplished by using a modified version of LiamBindle’s MQTT-C. Since the software of that device had been designed as a reactive software, MQTT-C had to be modified to communicate it with the rest of the system by exchanging asynchronous events. These events were used for receiving and sending traffic over the network as well as for connecting and publishing sensitive information to a server. The resulting software library was called MQTT-Reactive.
+
 MQTT-Reactive was used through a state machine as shown in Figure 1, which models the basic behavior of a MQTT-Reactive 
-client. This state machine was executed from an active object called `MqttMgr` (MQTT Manager), which provided strict encapsulation of the MQTT-Reactive code and it was the only entity allowed to call any MQTT-Reactive function or access MQTT-Reactive data.
+client. It was an active object called `MqttMgr` (MQTT Manager), which provided strict encapsulation of the MQTT-Reactive code and it was the only entity allowed to call any MQTT-Reactive function or access MQTT-Reactive data.
 The state machine actions in Figure 1 demonstrate how the MQTT-Reactive library could be used from a state machine. 
 Even though the C language was used as the action language in Figure 1, any computer or formal language can be used. 
 
