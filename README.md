@@ -138,6 +138,4 @@ localSend | LocalSendAll | Data context on sending messages
 localRecv | LocalRecvAll | Data context on receiving messages
 
 ## License
-`This project is licensed under the [MIT License](https://opensource.org/licenses/MIT). See the` 
-
-`"L`ICENSE`"` file for more details.
+This project is licensed under the [MIT License](https://opensource.org/licenses/MIT). See the [LICENSE](/LICENSE) file for more details.
