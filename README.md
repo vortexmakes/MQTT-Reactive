@@ -8,7 +8,7 @@ MQTT-Reactive was used through a state machine as shown in Figure 1, which model
 client. The state machine actions in Figure 1 demonstrate how the MQTT-Reactive library could be used from a state machine. 
 Even though the C language was used as the action language in Figure 1, any computer or formal language can be used. 
 
-Figure 1. State machine of a MQTT-Reactive client (Source: [VortexMakes](https://www.vortexmakes.com/))
+![Figure 1. State machine of a MQTT-Reactive client (Source: VortexMakes)](/model/mqtt-reactive-model-code.png)
 
 The state machine in Figure 1 starts in the WaitingForNetConnection state. After a network connection is established to a server, the WaitingForNetConnection receives the Activate event, and then the state machine transitions to WaitingForSync state. Only in this state can the state machine stage MQTT messages to be sent to the broker such as CONNECT or PUBLISH through the Connect and Publish events respectively. The Sync state uses an UML’s special mechanism for deferring the Publish event that is specified by the defer keyword included in the internal compartment of the Sync state. If the  Publish event occurs when Sync is the current state, it will be saved (deferred) for future processing until the SM enters in a state in which the Publish event is not in its deferred event list such as WaitingForSync or WaitingForNetConnection. Upon entry to such states, the state machine will automatically recall any saved Publish event and will then either consume or discard this event according to the transition target state.
 
