@@ -79,6 +79,21 @@ The MqttMgr object’s data are accessed and modified directly without using acc
 ```c
 mqtt_recvMsgError(&me->client, &me->localRecv);
 ```
+The MqttMgr has the list of attributes shown in following table.
+
+Attribute | Type | Description
+----------|------|------------
+clientId | char [23] | It identifies the client to the server. See MQTT v3.1.1 section 3.1.3.1
+keepAlive | uint16_t | Time interval measured in seconds. See MQTT v3.1.1 section 3.1.2.10
+topic | char [20] | It identifies the information channel to which payload data is published. See MQTT v3.1.1 section 3.3.2.1
+qos | uint8_t | Level of assurance for delivery of this message . See MQTT v3.1.1 section 3.3.2.1
+client | struct mqtt_client | Instance of MQTT client
+sendbuf | uint8_t [2048] | A buffer that will be used for sending messages to the broker
+recvbuf | uint8_t [1024] | A buffer that will be used for receiving messages from the broker
+operRes | enum MQTTErrors | An enumeration of error codes
+errorStr | const char * | String which indicates the last error message 
+localSend | LocalSendAll | Data context on sending messages
+localRecv | LocalRecvAll | Data context on receiving messages
 
 ## License
 This project is licensed under the [MIT License](https://opensource.org/licenses/MIT). See the 
